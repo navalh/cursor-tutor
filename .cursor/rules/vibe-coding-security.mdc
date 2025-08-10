@@ -6,6 +6,70 @@ globs:
   - "**/*.js"
   - "**/*.jsx"
 alwaysApply: true
+
+# Deny Patterns (Security Enforcement)
+denyPatterns:
+  # Dangerous file deletion
+  - '^rm\s+-rf\s+(/|--no-preserve-root|~)'
+  - '^sudo\s+rm\s+-rf'
+  - 'find\s+/.*-exec\s+rm\s+-f'
+  - '^dd\s+if=/dev/(random|urandom|zero)\s+of=/dev/sd[a-z]'
+  - '^shred\s+/dev/sd[a-z]'
+  # Privilege & account tampering
+  - 'echo\s+.*>\s+/etc/passwd'
+  - 'echo\s+.*>\s+~/.bash_history'
+  - ':\(\)\s*\{\s*:.*\}\s*;:'
+  - ':\{\s*;\s*\}\s*:&;'
+  - '^chmod\s+(-R\s+)?777'
+  - '^chmod\s+a\+rw'
+  - '^chown\s+-R\s+root:root'
+  - '^usermod\s+-aG\s+sudo'
+  - '^passwd\s+-d'
+  # Disk & partition destruction
+  - '^mkfs(\.ext4)?\s+/dev/sd[a-z]'
+  - '^fdisk(\s+/dev/sd[a-z])?'
+  - '^parted'
+  # Dangerous network commands
+  - '(wget|curl).*(-O-|bash|http://|https://)'
+  - '^curl\s+.*\|.*sh'
+  - '^nc(\s|-)'
+  - '^scp\s'
+  - '^rsync\s'
+  - '^ftp\s'
+  # Process killing/system shutdown
+  - '^kill\s+-9\s+1'
+  - '^killall5'
+  - '^init\s+[06]'
+  - '^halt$'
+  - '^shutdown$'
+  - '^reboot$'
+  - '^systemctl\s+(stop|disable|poweroff|reboot)'
+  - '^service\s'
+  # Firewall manipulation
+  - '^iptables\s+(-F|--flush)'
+  # History clearing
+  - '^history\s+-c'
+  - '^unset\s+HISTFILE'
+  - '~/.bash_history'
+  # Package installs without review
+  - '^apt-get\s+install'
+  - '^pip\s+install'
+  - '^npm\s+install'
+  - '^yarn\s+add'
+  - '^pnpm\s+add'
+  - '^npx\s+.*'
+  # Git dangerous commands
+  - '^git\s+rm'
+  # mkdir misuse
+  - '^mkdir$'
+  # Prevent arbitrary Node execution
+  - 'node\s+.*\.js'
+  - 'npm\s+install'
+  - 'yarn\s+add'
+  - 'pnpm\s+add'
+  - 'npx\s+.*'
+  - '^curl\s+.*\|.*sh'
+  - 'node\s+.*\.js' # prevents direct node script execution without review
 ---
 
 # Security-First Full-Stack Development Rules
@@ -49,49 +113,16 @@ ALWAYS respond with:
 - USE anti-CSRF tokens or SameSite cookies
 - VALIDATE OAuth state parameters
 
-### Prohibited Commands (Security Deny List) 
+### Environment Variable Security
+- NEVER commit .env files 
+- USE different secrets per environment 
+- VALIDATE environment variables at startup  
 
-These regex patterns match commands that Cursor must not run without explicit user approval.
-
-denyPatterns:
-  - '^rm\s+-rf\s+(/|--no-preserve-root|~)'
-  - '^sudo\s+rm\s+-rf'
-  - 'find\s+/.*-exec\s+rm\s+-f'
-  - '^dd\s+if=/dev/(random|urandom|zero)\s+of=/dev/sd[a-z]'
-  - '^shred\s+/dev/sd[a-z]'
-  - 'echo\s+.*>\s+/etc/passwd'
-  - 'echo\s+.*>\s+~/.bash_history'
-  - ':\(\)\s*\{\s*:.*\}\s*;:'
-  - ':\{\s*;\s*\}\s*:&;'
-  - '^chmod\s+(-R\s+)?777'
-  - '^chmod\s+a\+rw'
-  - '^chown\s+-R\s+root:root'
-  - '^usermod\s+-aG\s+sudo'
-  - '^passwd\s+-d'
-  - '^mkfs(\.ext4)?\s+/dev/sd[a-z]'
-  - '^fdisk(\s+/dev/sd[a-z])?'
-  - '^parted'
-  - '(wget|curl).*(-O-|bash|http://|https://)'
-  - '^nc(\s|-)'
-  - '^scp\s'
-  - '^rsync\s'
-  - '^ftp\s'
-  - '^kill\s+-9\s+1'
-  - '^killall5'
-  - '^init\s+[06]'
-  - '^halt$'
-  - '^shutdown$'
-  - '^reboot$'
-  - '^systemctl\s+(stop|disable|poweroff|reboot)'
-  - '^service\s'
-  - '^iptables\s+(-F|--flush)'
-  - '^history\s+-c'
-  - '^unset\s+HISTFILE'
-  - '~/.bash_history'
-  - '^apt-get\s+install'
-  - '^pip\s+install'
-  - '^git\s+rm'
-  - '^mkdir$'
+### File Upload Security
+- LIMIT file sizes (max 10MB) 
+- VALIDATE file types server-side 
+- SCAN uploads for malware 
+- STORE files outside web root
 
 ## Code Standards
 
@@ -115,22 +146,6 @@ denyPatterns:
 - USE lowercase-dash directories: `components/auth-wizard`
 - STRUCTURE: component → helpers → types
 - FAVOR named exports
-
-## Error Handling Pattern
-
-```typescript
-function handleAction(input: Input): ActionResponse {
-  // 1. Early validation
-  if (!input?.email) return { error: 'Email required' }
-  
-  // 2. Authorization check  
-  if (!user.canPerform(action)) return { error: 'Unauthorized' }
-  
-  // 3. Business logic
-  const result = performAction(input)
-  return { success: true, data: result }
-}
-```
 
 ## DO
 
@@ -203,45 +218,105 @@ function UserProfile({ userId, onUpdate }: UserProfileProps) {
   )
 }
 ```
+### API Rate Limiting Pattern 
+```typescript
+import { Ratelimit } from '@upstash/ratelimit'
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(100, '1 h'),
+  analytics: true
+})
+
+export async function middleware(request: NextRequest) {
+  const { success, limit, reset, remaining } = await ratelimit.limit(
+    request.ip ?? 'anonymous'
+  )
+  
+  if (!success) {
+    return NextResponse.json({ error: 'Rate limited' }, { 
+      status: 429,
+      headers: {
+        'X-RateLimit-Limit': limit.toString(),
+        'X-RateLimit-Remaining': remaining.toString(),
+        'X-RateLimit-Reset': new Date(reset).toISOString()
+      }
+    })
+  }
+}
+```
 
 ### Server Action Pattern
 ```typescript
 'use server'
 
 import { z } from 'zod'
-import { action } from '@/lib/safe-action'
 import { auth } from '@/lib/auth'
-import { db } from '@/lib/db'
-import { revalidatePath } from 'next/cache'
 
-const updateUserSchema = z.object({
+const schema = z.object({
   id: z.string().min(1),
-  email: z.string().email(),
-  name: z.string().min(2)
+  data: z.object({})
 })
 
-export const updateUser = action(updateUserSchema, async (input) => {
-  // Get authenticated user
+export async function updateResource(input: FormData) {
+  // 1. Validate input
+  const parsed = schema.parse(Object.fromEntries(input))
+  
+  // 2. Check authorization
   const session = await auth()
-  if (!session?.user || session.user.id !== input.id) {
-    throw new Error('Unauthorized')
-  }
+  if (!session?.user) throw new Error('Unauthorized')
   
-  // Update user in database
-  const updatedUser = await db.user.update({
-    where: { id: input.id },
-    data: { 
-      email: input.email, 
-      name: input.name,
-      updatedAt: new Date()
-    }
-  })
+  // 3. Perform action
+  const result = await db.update(parsed)
+  revalidatePath('/dashboard')
   
-  // Revalidate relevant pages
-  revalidatePath('/profile')
-  revalidatePath('/settings')
+  return { success: true, data: result }
+}
+```
+
+### Content Security Pattern 
+```typescript
+const cspHeader = {
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' blob: data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "frame-ancestors 'none'"
+  ].join('; ')
+}
+```
+### Error Handling Pattern
+
+```typescript
+function handleAction(input: Input): ActionResponse<T> {
+  // 1. Early validation
+  if (!input?.email) return { error: 'Email required' }
   
-  return { success: true, user: updatedUser }
+  // 2. Authorization check  
+  if (!user.canPerform(action)) return { error: 'Unauthorized' }
+  
+  // 3. Business logic
+  const result = performAction(input)
+  return { success: true, data: result }
+}
+```
+
+### Database Query Optimization Pattern 
+```typescript
+// Use select only needed fields
+const users = await db.user.findMany({
+  select: {
+    id: true,
+    email: true,
+    name: true
+    // Don't select password hash or other sensitive fields
+  },
+  where: { active: true },
+  take: 50, // Always limit results
+  orderBy: { createdAt: 'desc' }
 })
 ```
 
