@@ -25,15 +25,29 @@ Uses the RAWG API to fetch game data and genres. Requires a `RAWG_API_KEY` envir
 
 ## Getting Started
 
+**Option 1: Quick Setup (Recommended)**
+```bash
+./setup.sh
+```
+
+**Option 2: Manual Setup**
+
 1. Install dependencies:
    ```bash
    npm install
    ```
 
 2. Set up environment variables:
+   
+   **Important**: You need a RAWG API key to use this application.
+   
+   a. Get your free API key at [https://rawg.io/apidocs](https://rawg.io/apidocs)
+   b. Create a `.env.local` file in the project root:
    ```bash
-   echo "RAWG_API_KEY=your_api_key_here" > .env.local
+   echo "RAWG_API_KEY=your_actual_api_key_here" > .env.local
    ```
+   
+   **Note**: Replace `your_actual_api_key_here` with your real RAWG API key.
 
 3. Run the development server:
    ```bash
@@ -65,3 +79,20 @@ The system considers:
 - Proper error handling and HTTP status codes
 - Environment variable protection for API keys
 - TypeScript for type safety
+
+## Troubleshooting
+
+### "Invalid API key" Error
+- Make sure you have created a `.env.local` file with your RAWG API key
+- Verify the API key is correct and active
+- Check that the `.env.local` file is in the project root directory
+
+### Validation Errors
+- The form automatically filters out invalid values
+- Metacritic Rating Band "Any" is handled correctly
+- All inputs are validated before submission
+
+### No Games Loading
+- Ensure your API key is valid
+- Check the browser console for error messages
+- Verify the RAWG API service is available

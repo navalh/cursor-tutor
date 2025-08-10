@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { recommendationEngine } from '@/lib/recommendation-engine'
+import { rawgAPI } from '@/lib/api'
 
 const recommendationSchema = z.object({
   genres: z.array(z.string()).optional(),
@@ -18,13 +19,18 @@ export async function GET(request: NextRequest) {
     const queryParams = {
       genres: searchParams.get('genres')?.split(',').filter(Boolean) || [],
       minMetacritic: searchParams.get('minMetacritic') ? parseInt(searchParams.get('minMetacritic')!) : undefined,
-      metacriticBand: searchParams.get('metacriticBand') as 'any' | '0-30' | '31-60' | '61-80' | '81-100' | undefined,
+      metacriticBand: searchParams.get('metacriticBand') || undefined,
       maxPlaytime: searchParams.get('maxPlaytime') ? parseInt(searchParams.get('maxPlaytime')!) : 100,
       excludedTags: searchParams.get('excludedTags')?.split(',').filter(Boolean) || [],
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 20
     }
 
-    const validatedParams = recommendationSchema.parse(queryParams)
+    // Filter out undefined values before validation
+    const filteredParams = Object.fromEntries(
+      Object.entries(queryParams).filter(([_, value]) => value !== undefined)
+    )
+
+    const validatedParams = recommendationSchema.parse(filteredParams)
 
     // Mock user preferences (in a real app, this would come from user authentication)
     const mockUserPreferences = {
@@ -36,11 +42,31 @@ export async function GET(request: NextRequest) {
       excludedTags: validatedParams.excludedTags || []
     }
 
+    // Fetch games from RAWG API
+    const gamesResponse = await rawgAPI.getGames({
+      genres: validatedParams.genres,
+      minMetacritic: validatedParams.minMetacritic,
+      excludedTags: validatedParams.excludedTags,
+      limit: Math.min(validatedParams.limit || 20, 50) // RAWG API limit
+    })
+
+    console.log('RAWG games response:', {
+      count: gamesResponse.count,
+      resultsCount: gamesResponse.results?.length || 0,
+      firstGame: gamesResponse.results?.[0]?.name || 'No games'
+    })
+
     const recommendations = await recommendationEngine.generateRecommendations(
-      [], // Empty array since we're using the recommendation engine's internal game fetching
+      gamesResponse.results || [],
       mockUserPreferences,
       validatedParams.limit || 20
     )
+
+    console.log('Recommendation engine output:', {
+      inputGames: gamesResponse.results?.length || 0,
+      outputRecommendations: recommendations.length,
+      userPreferences: mockUserPreferences
+    })
 
     return NextResponse.json({
       success: true,

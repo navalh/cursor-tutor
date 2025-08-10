@@ -93,8 +93,17 @@ function RecommendationForm({ onSearch }: { onSearch: (params: SearchParams) => 
       try {
         const response = await fetch('/api/genres')
         const data = await response.json()
+        console.log('Genres API response:', data) // Debug log
         if (data.success) {
-          setAvailableGenres(data.data || [])
+          // Ensure data.data is an array
+          const genres = Array.isArray(data.data) ? data.data : []
+          console.log('Setting genres:', genres) // Debug log
+          setAvailableGenres(genres)
+        } else if (data.code === 'MISSING_API_KEY') {
+          console.warn('API key not configured:', data.error)
+          // Don't show error to user, just use empty genres list
+        } else {
+          console.error('Failed to fetch genres:', data.error)
         }
       } catch (error) {
         console.error('Failed to fetch genres:', error)
@@ -118,6 +127,11 @@ function RecommendationForm({ onSearch }: { onSearch: (params: SearchParams) => 
       limit: parseInt(formData.limit)
     }
     
+    // Only include metacriticBand if it's not 'any'
+    if (params.metacriticBand === 'any') {
+      delete params.metacriticBand
+    }
+    
     onSearch(params)
   }
 
@@ -129,23 +143,27 @@ function RecommendationForm({ onSearch }: { onSearch: (params: SearchParams) => 
           <label htmlFor="genres" className="block text-sm font-medium text-gray-700 mb-1">
             Genres
           </label>
-          {isLoadingGenres ? (
-            <div className="text-sm text-gray-500">Loading genres...</div>
-          ) : (
-            <select
-              id="genres"
-              value={formData.genres}
-              onChange={(e) => setFormData({ ...formData, genres: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Genres</option>
-              {availableGenres.map((genre) => (
+                  {isLoadingGenres ? (
+          <div className="text-sm text-gray-500">Loading genres...</div>
+        ) : (
+          <select
+            id="genres"
+            value={formData.genres}
+            onChange={(e) => setFormData({ ...formData, genres: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Genres</option>
+            {Array.isArray(availableGenres) && availableGenres.length > 0 ? (
+              availableGenres.map((genre) => (
                 <option key={genre.id} value={genre.slug}>
                   {genre.name}
                 </option>
-              ))}
-            </select>
-          )}
+              ))
+            ) : (
+              <option value="" disabled>No genres available</option>
+            )}
+          </select>
+        )}
         </div>
 
         {/* Minimum Metacritic Score */}
@@ -262,6 +280,7 @@ export default function Home() {
       const queryParams = new URLSearchParams()
       if (Array.isArray(params.genres)) queryParams.set('genres', params.genres.join(','))
       if (typeof params.minMetacritic === 'number') queryParams.set('minMetacritic', params.minMetacritic.toString())
+      if (params.metacriticBand && params.metacriticBand !== 'any') queryParams.set('metacriticBand', params.metacriticBand)
       if (typeof params.maxPlaytime === 'number') queryParams.set('maxPlaytime', params.maxPlaytime.toString())
       if (typeof params.limit === 'number') queryParams.set('limit', params.limit.toString())
 
