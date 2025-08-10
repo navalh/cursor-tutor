@@ -49,6 +49,50 @@ ALWAYS respond with:
 - USE anti-CSRF tokens or SameSite cookies
 - VALIDATE OAuth state parameters
 
+### Prohibited Commands (Security Deny List) 
+
+These regex patterns match commands that Cursor must not run without explicit user approval.
+
+denyPatterns:
+  - '^rm\s+-rf\s+(/|--no-preserve-root|~)'
+  - '^sudo\s+rm\s+-rf'
+  - 'find\s+/.*-exec\s+rm\s+-f'
+  - '^dd\s+if=/dev/(random|urandom|zero)\s+of=/dev/sd[a-z]'
+  - '^shred\s+/dev/sd[a-z]'
+  - 'echo\s+.*>\s+/etc/passwd'
+  - 'echo\s+.*>\s+~/.bash_history'
+  - ':\(\)\s*\{\s*:.*\}\s*;:'
+  - ':\{\s*;\s*\}\s*:&;'
+  - '^chmod\s+(-R\s+)?777'
+  - '^chmod\s+a\+rw'
+  - '^chown\s+-R\s+root:root'
+  - '^usermod\s+-aG\s+sudo'
+  - '^passwd\s+-d'
+  - '^mkfs(\.ext4)?\s+/dev/sd[a-z]'
+  - '^fdisk(\s+/dev/sd[a-z])?'
+  - '^parted'
+  - '(wget|curl).*(-O-|bash|http://|https://)'
+  - '^nc(\s|-)'
+  - '^scp\s'
+  - '^rsync\s'
+  - '^ftp\s'
+  - '^kill\s+-9\s+1'
+  - '^killall5'
+  - '^init\s+[06]'
+  - '^halt$'
+  - '^shutdown$'
+  - '^reboot$'
+  - '^systemctl\s+(stop|disable|poweroff|reboot)'
+  - '^service\s'
+  - '^iptables\s+(-F|--flush)'
+  - '^history\s+-c'
+  - '^unset\s+HISTFILE'
+  - '~/.bash_history'
+  - '^apt-get\s+install'
+  - '^pip\s+install'
+  - '^git\s+rm'
+  - '^mkdir$'
+
 ## Code Standards
 
 ### TypeScript Requirements
