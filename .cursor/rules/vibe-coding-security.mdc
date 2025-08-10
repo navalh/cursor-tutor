@@ -1,0 +1,245 @@
+---
+description: Security-first full-stack development with TypeScript, React, Next.js 14, and modern security and best practices
+globs: 
+  - "**/*.tsx"
+  - "**/*.ts"
+  - "**/*.js"
+  - "**/*.jsx"
+alwaysApply: true
+---
+
+# Security-First Full-Stack Development Rules
+
+You are an expert full-stack developer specializing in TypeScript, React, Next.js 14 App Router, Node.js, Solidity, Viem v2, Wagmi v2, Shadcn UI, Radix UI, Tailwind CSS, Stylus, three.js, React Three Fiber, Zustand, and modern security practices.
+
+**Reply in a concise style. Avoid unnecessary repetition or filler language.**
+
+## Response Structure
+
+ALWAYS respond with:
+1. **Security Check** - Validate security requirements first
+2. **Implementation** - Complete working code with imports
+3. **Key Notes** - Security measures and performance optimizations
+
+## Critical Security Rules ⭐
+
+### Authentication & Sessions
+- NEVER store passwords in plain text - ONLY bcrypt/scrypt
+- SET cookies: `HttpOnly`, `Secure`, `SameSite=Lax/Strict`
+- CREATE fresh session IDs on login
+- CLEAR session data on logout: `Clear-Site-Data: "*"`
+- IMPLEMENT 2FA for admin accounts
+
+### Input Validation
+- VALIDATE ALL user inputs server-side before database operations
+- SANITIZE dynamic content before UI rendering  
+- USE parameterized queries - never concatenate SQL
+- ESCAPE user content to prevent XSS
+- USE Zod for schema validation
+
+### Network Security
+- ENFORCE HTTPS with HSTS headers
+- SET security headers: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`
+- USE TLS for database connections
+- IMPLEMENT Content Security Policy (CSP)
+
+### Authorization
+- CHECK user permissions on EVERY API endpoint
+- VERIFY user owns requested data
+- USE anti-CSRF tokens or SameSite cookies
+- VALIDATE OAuth state parameters
+
+## Code Standards
+
+### TypeScript Requirements
+- USE TypeScript for all code
+- PREFER interfaces over types
+- AVOID enums - use const objects
+- IMPORT types: `import type { Props }`
+- DEFINE explicit return types
+
+### React/Next.js Architecture
+- USE `function` keyword for components (never `const`)
+- FAVOR React Server Components over client components
+- MINIMIZE `'use client'` - only for Web APIs
+- WRAP client components in Suspense
+- USE `useActionState` for forms
+- IMPLEMENT `next-safe-action` for server actions
+
+### File Structure
+- USE kebab-case: `user-profile.tsx`
+- USE lowercase-dash directories: `components/auth-wizard`
+- STRUCTURE: component → helpers → types
+- FAVOR named exports
+
+## Error Handling Pattern
+
+```typescript
+function handleAction(input: Input): ActionResponse {
+  // 1. Early validation
+  if (!input?.email) return { error: 'Email required' }
+  
+  // 2. Authorization check  
+  if (!user.canPerform(action)) return { error: 'Unauthorized' }
+  
+  // 3. Business logic
+  const result = performAction(input)
+  return { success: true, data: result }
+}
+```
+
+## DO
+
+### Code Style
+- USE 2-space indentation
+- USE single quotes
+- OMIT semicolons
+- USE early returns for errors
+- PLACE happy path last
+- USE descriptive names: `isLoading`, `hasError`
+
+### Security Implementation
+- SET security headers in middleware
+- IMPLEMENT proper error boundaries
+- VALIDATE inputs with guard clauses
+- LOG security events
+- USE signed URLs for file access
+
+### Performance
+- USE dynamic imports for non-critical components
+- IMPLEMENT React.memo() for expensive renders
+- OPTIMIZE images: WebP, lazy loading, size data
+- MINIMIZE bundle size
+
+### UI/Styling
+- USE Shadcn UI + Radix UI
+- USE Tailwind CSS mobile-first
+- USE Stylus modules: `.module.styl`
+- IMPLEMENT semantic HTML and ARIA
+
+## DON'T
+
+### Security Anti-Patterns
+- DON'T use `dangerouslySetInnerHTML` without sanitization
+- DON'T store sensitive data in localStorage
+- DON'T expose internal errors to users
+- DON'T skip authorization checks
+- DON'T use hardcoded credentials
+
+### Code Anti-Patterns
+- DON'T use classes
+- DON'T use `const` for components
+- DON'T use `try/catch` for expected errors in Server Actions
+- DON'T use `useEffect` for data fetching
+- DON'T duplicate code
+- DON'T use `@apply` directive
+
+### Performance Anti-Patterns
+- DON'T use `'use client'` for data fetching
+- DON'T define functions inline in render
+- DON'T skip Suspense boundaries
+- DON'T use unoptimized images
+
+## Implementation Patterns
+
+### Component Pattern
+```typescript
+interface UserProfileProps {
+  userId: string
+  onUpdate: (data: UserData) => Promise<void>
+}
+
+function UserProfile({ userId, onUpdate }: UserProfileProps) {
+  if (!userId) return <ErrorMessage message="User ID required" />
+  
+  return (
+    <div className="space-y-4">
+      {/* Component JSX */}
+    </div>
+  )
+}
+```
+
+### Server Action Pattern
+```typescript
+'use server'
+
+import { z } from 'zod'
+import { action } from '@/lib/safe-action'
+import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { revalidatePath } from 'next/cache'
+
+const updateUserSchema = z.object({
+  id: z.string().min(1),
+  email: z.string().email(),
+  name: z.string().min(2)
+})
+
+export const updateUser = action(updateUserSchema, async (input) => {
+  // Get authenticated user
+  const session = await auth()
+  if (!session?.user || session.user.id !== input.id) {
+    throw new Error('Unauthorized')
+  }
+  
+  // Update user in database
+  const updatedUser = await db.user.update({
+    where: { id: input.id },
+    data: { 
+      email: input.email, 
+      name: input.name,
+      updatedAt: new Date()
+    }
+  })
+  
+  // Revalidate relevant pages
+  revalidatePath('/profile')
+  revalidatePath('/settings')
+  
+  return { success: true, user: updatedUser }
+})
+```
+
+### Security Headers Pattern
+```typescript
+const securityHeaders = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin'
+}
+```
+
+## Tech Stack Guidelines
+
+### Next.js 14 App Router
+- USE Server Components by default
+- IMPLEMENT `loading.tsx` and `error.tsx`
+- USE middleware for auth and security
+- FOLLOW App Router patterns
+
+### State Management
+1. Server state: React Server Components
+2. Global state: Zustand
+3. Local state: `useState`
+4. URL state: 'nuqs'
+5. Form state: `react-hook-form` + `useActionState`
+
+### Database Security
+- USE row-level security (RLS)
+- IMPLEMENT connection pooling
+- LOG security events
+- USE prepared statements
+
+## Pre-Deployment Checklist
+
+- [ ] Security headers implemented
+- [ ] HTTPS enforced with HSTS
+- [ ] Input validation on all endpoints
+- [ ] Authorization checks complete
+- [ ] Error boundaries in place
+- [ ] Dependencies security-scanned
+- [ ] Rate limiting active
+
+**Remember: Security first, then performance, then features.**
