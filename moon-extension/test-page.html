@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moon Extension Test Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f7f7f9;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .test-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .test-text {
+            line-height: 1.8;
+            color: #444;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin: 10px 0;
+            cursor: text;
+            transition: all 0.3s ease;
+        }
+        
+        .test-text:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+        
+        .instruction {
+            background: #e0e7ff;
+            color: #4c51bf;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .highlight {
+            background: linear-gradient(to right, #ffeaa7, #fdcb6e);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        .emoji {
+            font-size: 24px;
+        }
+        
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <span class="emoji">🌙</span>
+            Moon Extension Test Page
+        </h1>
+        <p class="subtitle">Select any text below to test the AI reply generator</p>
+        
+        <div class="instruction">
+            <span class="emoji">💡</span>
+            <span>Highlight any text with your mouse, then click the Moon icon in your toolbar or look for the 🌙 indicator!</span>
+        </div>
+
+        <div class="test-section">
+            <h2>📧 Email Scenarios</h2>
+            
+            <div class="test-text">
+                Hey, I noticed you haven't submitted the quarterly report yet. It was due last Friday. Can you please get it to me ASAP?
+            </div>
+            
+            <div class="test-text">
+                Thank you for your application. Unfortunately, we've decided to move forward with other candidates at this time.
+            </div>
+            
+            <div class="test-text">
+                Congratulations! You've been selected for the next round of interviews. When would be a good time for you next week?
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>💬 Social Media Comments</h2>
+            
+            <div class="test-text">
+                This is the worst take I've ever seen. Did you even think before posting this?
+            </div>
+            
+            <div class="test-text">
+                Wow, this is absolutely amazing! How long did it take you to create this masterpiece?
+            </div>
+            
+            <div class="test-text">
+                I disagree with your opinion, but I respect your right to express it. Here's my perspective on the matter...
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>💼 Professional Messages</h2>
+            
+            <div class="test-text">
+                I need you to stay late tonight to finish the presentation. I know it's short notice, but the client moved up the deadline.
+            </div>
+            
+            <div class="test-text">
+                Your performance this quarter has been exceptional. I'd like to discuss a promotion opportunity with you.
+            </div>
+            
+            <div class="test-text">
+                The budget for your project has been cut by 30%. You'll need to adjust your plans accordingly.
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Customer Service</h2>
+            
+            <div class="test-text">
+                I've been waiting for my refund for 3 weeks now. This is completely unacceptable! I want to speak to a manager immediately!
+            </div>
+            
+            <div class="test-text">
+                Your product saved me so much time! I've been recommending it to all my colleagues. Keep up the great work!
+            </div>
+            
+            <div class="test-text">
+                The item I received doesn't match the description on your website. How can we resolve this?
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🚀 Technical Discussions</h2>
+            
+            <div class="test-text">
+                Your code has multiple bugs and doesn't follow our coding standards. Please review and resubmit.
+            </div>
+            
+            <div class="test-text">
+                Have you considered using a microservices architecture instead? It might solve your scalability issues.
+            </div>
+            
+            <div class="code-block">
+                // This function could be optimized
+                function slowFunction(arr) {
+                    for(let i = 0; i < arr.length; i++) {
+                        for(let j = 0; j < arr.length; j++) {
+                            // O(n²) complexity
+                        }
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>✨ Test Different Tones</h2>
+            <p style="margin: 10px 0;">Try selecting this text and generating replies in different tones:</p>
+            
+            <div class="test-text">
+                <mark class="highlight">I can't believe you forgot our anniversary again. This is the third year in a row!</mark>
+            </div>
+            
+            <p style="margin-top: 15px;">
+                Expected tone results:
+                <span class="badge">😊 Optimistic</span>
+                <span class="badge">😏 Sarcastic</span>
+                <span class="badge">💼 Direct</span>
+                <span class="badge">💅 Sassy</span>
+            </p>
+        </div>
+
+        <div class="instruction" style="background: #fef3c7; color: #92400e;">
+            <span class="emoji">⚠️</span>
+            <span>Long text test: Select this entire paragraph to test the extension's handling of longer content. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. This text should be truncated appropriately in the extension popup while still generating a relevant response.</span>
+        </div>
+    </div>
+</body>
+</html>
