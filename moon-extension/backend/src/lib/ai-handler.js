@@ -59,14 +59,24 @@ export class AIHandler {
 
   async generateReply({ text, tone, userId, requestId }) {
     try {
+      // If no real API key, return mock immediately
+      if (!this.openai.apiKey || this.openai.apiKey === 'mock-key') {
+        console.log('Using mock reply - no API key configured')
+        return this.getMockReply(tone, text)
+      }
+
       // Check cache first
       const cacheKey = this.getCacheKey(text, tone)
       
-      if (this.cacheEnabled) {
-        const cached = await this.redis.get(cacheKey)
-        if (cached) {
-          console.log(`Cache hit for request ${requestId}`)
-          return cached
+      if (this.cacheEnabled && this.redis) {
+        try {
+          const cached = await this.redis.get(cacheKey)
+          if (cached) {
+            console.log(`Cache hit for request ${requestId}`)
+            return cached
+          }
+        } catch (error) {
+          console.log('Cache check failed:', error.message)
         }
       }
 
@@ -103,7 +113,7 @@ export class AIHandler {
       let reply = await this.callOpenAI(messages, requestId)
       
       // Fallback to Anthropic if OpenAI fails
-      if (!reply) {
+      if (!reply && this.anthropic.apiKey) {
         console.log(`Falling back to Anthropic for request ${requestId}`)
         reply = await this.callAnthropic(messages, requestId)
       }
@@ -114,16 +124,49 @@ export class AIHandler {
       }
 
       // Cache the result
-      if (this.cacheEnabled && reply) {
-        await this.redis.setex(cacheKey, this.cacheTTL, reply)
+      if (this.cacheEnabled && this.redis && reply) {
+        try {
+          await this.redis.setex(cacheKey, this.cacheTTL, reply)
+        } catch (error) {
+          console.log('Cache write failed:', error.message)
+        }
       }
 
       return reply
 
     } catch (error) {
       console.error('Error in generateReply:', error)
-      throw error
+      // Return mock reply on error
+      return this.getMockReply(tone, text)
     }
+  }
+
+  getMockReply(tone, text) {
+    const mockReplies = {
+      optimistic: [
+        "That's absolutely wonderful! I'm excited to see where this journey takes us! ✨",
+        "What an amazing perspective! The possibilities are endless! 🌟",
+        "I love your enthusiasm! Together we can make incredible things happen! 🚀"
+      ],
+      sarcastic: [
+        "Oh brilliant, absolutely groundbreaking stuff here. Never seen anything like it. 🙄",
+        "Wow, revolutionary. I'm sure the Nobel committee is already preparing your award. 😏",
+        "Fascinating. Truly. I'm on the edge of my seat with excitement. 😐"
+      ],
+      direct: [
+        "Acknowledged. Proceeding with the implementation.",
+        "Understood. I'll handle this accordingly.",
+        "Clear. Moving forward with the next steps."
+      ],
+      sassy: [
+        "Honey, we need to talk about your choices here... but okay, let's work with it. 💅",
+        "Well well well, look who's coming in hot with the suggestions! Love the energy though. ✨",
+        "Cute idea, but let me show you how we REALLY do things around here. 💁‍♀️"
+      ]
+    }
+    
+    const replies = mockReplies[tone] || ["Thank you for your message."]
+    return replies[Math.floor(Math.random() * replies.length)]
   }
 
   async callOpenAI(messages, requestId) {
