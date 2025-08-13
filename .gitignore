@@ -1,8 +1,5 @@
 # Environment variables
-.env.*
-*.env
-*.env.*
-
+*env*
 
 # Dependencies
 node_modules/
