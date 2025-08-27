@@ -6,7 +6,7 @@ const API_CONFIG = {
   production: 'https://api.moonreply.com/api'
 }
 
-const API_URL = API_CONFIG.production // Change to development for local testing
+const API_URL = API_CONFIG.development // Using development for local testing
 
 // Initialize extension on install
 chrome.runtime.onInstalled.addListener(async (details) => {
@@ -40,8 +40,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         selectedText: request.text,
         timestamp: Date.now()
       })
-      // Open popup (if not already open)
-      chrome.action.openPopup()
+      // Note: chrome.action.openPopup() is not allowed in service workers
+      // User must click the extension icon to open popup
+      sendResponse({ success: true })
       break
       
     case 'TRACK_EVENT':
@@ -72,8 +73,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       timestamp: Date.now()
     })
     
-    // Open popup
-    chrome.action.openPopup()
+    // User must click the extension icon to open popup
+    // chrome.action.openPopup() is not allowed in service workers
   }
 })
 
