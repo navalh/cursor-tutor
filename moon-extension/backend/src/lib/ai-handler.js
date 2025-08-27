@@ -20,7 +20,7 @@ export class AIHandler {
     
     // Model configuration
     this.models = {
-      openai: 'gpt-4-turbo-preview',
+      openai: 'gpt-4o',
       anthropic: 'claude-3-opus-20240229'
     }
     
@@ -59,9 +59,12 @@ export class AIHandler {
 
   async generateReply({ text, tone, userId, requestId }) {
     try {
-      // If no real API key, return mock immediately
-      if (!this.openai.apiKey || this.openai.apiKey === 'mock-key') {
-        console.log('Using mock reply - no API key configured')
+      // Check if we have any real API keys
+      const hasOpenAI = this.openai.apiKey && this.openai.apiKey !== 'mock-key'
+      const hasAnthropic = this.anthropic.apiKey && this.anthropic.apiKey !== 'mock-key'
+      
+      if (!hasOpenAI && !hasAnthropic) {
+        console.log('Using mock reply - no API keys configured')
         return this.getMockReply(tone, text)
       }
 
@@ -109,13 +112,21 @@ export class AIHandler {
         content: `Generate a ${tone} reply to the following text. Keep it concise (under 150 words) and natural:\n\n"${text}"`
       })
 
-      // Try primary model (OpenAI)
-      let reply = await this.callOpenAI(messages, requestId)
+      // Prioritize Anthropic over OpenAI
+      let reply = null
       
-      // Fallback to Anthropic if OpenAI fails
-      if (!reply && this.anthropic.apiKey) {
-        console.log(`Falling back to Anthropic for request ${requestId}`)
+      if (hasAnthropic) {
+        console.log(`Using Anthropic Claude for request ${requestId}`)
         reply = await this.callAnthropic(messages, requestId)
+        
+        // Fallback to OpenAI if Anthropic fails
+        if (!reply && hasOpenAI) {
+          console.log(`Anthropic failed, falling back to OpenAI for request ${requestId}`)
+          reply = await this.callOpenAI(messages, requestId)
+        }
+      } else if (hasOpenAI) {
+        console.log(`Using OpenAI GPT for request ${requestId}`)
+        reply = await this.callOpenAI(messages, requestId)
       }
 
       // If both fail, use a fallback response
@@ -190,32 +201,20 @@ export class AIHandler {
 
   async callAnthropic(messages, requestId) {
     try {
-      // Convert messages to Anthropic format
-      const systemPrompt = messages.find(m => m.role === 'system')?.content || ''
-      const userMessages = messages.filter(m => m.role !== 'system')
-      
-      // Build conversation for Anthropic
-      let prompt = systemPrompt + '\n\n'
-      
-      for (const msg of userMessages) {
-        if (msg.role === 'user') {
-          prompt += `Human: ${msg.content}\n\n`
-        } else if (msg.role === 'assistant') {
-          prompt += `Assistant: ${msg.content}\n\n`
-        }
-      }
-      
-      prompt += 'Assistant:'
+      // Extract system message and user/assistant messages
+      const systemMessage = messages.find(m => m.role === 'system')?.content || ''
+      const conversationMessages = messages.filter(m => m.role !== 'system')
 
-      const response = await this.anthropic.completions.create({
-        model: this.models.anthropic,
-        prompt: prompt,
-        max_tokens_to_sample: 200,
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 200,
         temperature: 0.7,
-        metadata: { request_id: requestId }
+        system: systemMessage,
+        messages: conversationMessages,
+        metadata: { user_id: requestId }
       })
 
-      return response.completion?.trim()
+      return response.content[0]?.text?.trim()
     } catch (error) {
       console.error('Anthropic API error:', error.message)
       return null

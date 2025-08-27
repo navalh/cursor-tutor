@@ -100,15 +100,17 @@ try {
 try {
   aiHandler = new AIHandler({
     openaiKey: process.env.OPENAI_API_KEY || 'mock-key',
-    anthropicKey: process.env.ANTHROPIC_API_KEY,
+    anthropicKey: process.env.ANTHROPIC_API_KEY || 'mock-key',
     redis: redis
   })
   
-  if (!process.env.OPENAI_API_KEY) {
-    logger.warn('⚠️ No OpenAI API key found - using MOCK REPLIES for testing')
-    logger.warn('To use real AI, add OPENAI_API_KEY to your .env file')
-  } else {
-    logger.info('✅ OpenAI API key found - using real AI replies')
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) {
+    logger.warn('⚠️ No AI API keys found - using MOCK REPLIES for testing')
+    logger.warn('To use real AI, add ANTHROPIC_API_KEY or OPENAI_API_KEY to your .env file')
+  } else if (process.env.ANTHROPIC_API_KEY) {
+    logger.info('✅ Anthropic API key found - using Claude for AI replies')
+  } else if (process.env.OPENAI_API_KEY) {
+    logger.info('✅ OpenAI API key found - using GPT for AI replies')
   }
 } catch (error) {
   logger.error('AI Handler initialization failed:', error)
@@ -268,7 +270,10 @@ app.post('/api/generate-reply',
 
       // Generate reply using AI or mock
       let reply
-      if (aiHandler && process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'mock-key') {
+      const hasAnthropicKey = process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== 'mock-key'
+      const hasOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'mock-key'
+      
+      if (aiHandler && (hasAnthropicKey || hasOpenAIKey)) {
         try {
           reply = await aiHandler.generateReply({
             text,
@@ -276,6 +281,12 @@ app.post('/api/generate-reply',
             userId,
             requestId
           })
+          
+          if (hasAnthropicKey) {
+            logger.info('Reply generated using Anthropic Claude')
+          } else {
+            logger.info('Reply generated using OpenAI GPT')
+          }
         } catch (error) {
           logger.error('AI generation failed, using mock:', error.message)
           reply = getMockReply(tone, text)
@@ -283,7 +294,7 @@ app.post('/api/generate-reply',
       } else {
         // Use mock replies for testing
         reply = getMockReply(tone, text)
-        logger.info('Using mock reply (no API key configured)')
+        logger.info('Using mock reply (no AI API key configured)')
       }
 
       // Record usage (if database available)
@@ -486,8 +497,8 @@ process.on('SIGTERM', async () => {
     logger.info('HTTP server closed')
   })
   
-  await redis.quit()
-  await sql.end()
+  if (redis) await redis.quit()
+  if (sql) await sql.end()
   
   process.exit(0)
 })
