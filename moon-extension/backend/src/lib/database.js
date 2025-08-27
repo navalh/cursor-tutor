@@ -21,9 +21,7 @@ export class DatabaseManager {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           stripe_customer_id VARCHAR(255),
-          subscription_status VARCHAR(50),
-          INDEX idx_user_id (user_id),
-          INDEX idx_email (email)
+          subscription_status VARCHAR(50)
         )
       `
 
@@ -36,9 +34,7 @@ export class DatabaseManager {
           reply_preview TEXT,
           request_id VARCHAR(100),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          ip_address VARCHAR(45),
-          INDEX idx_user_usage (user_id, created_at),
-          FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+          ip_address VARCHAR(45)
         )
       `
 
@@ -48,9 +44,7 @@ export class DatabaseManager {
           event_name VARCHAR(100),
           user_hash VARCHAR(64),
           properties JSONB,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_event (event_name, created_at),
-          INDEX idx_user_hash (user_hash)
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `
 
@@ -61,11 +55,17 @@ export class DatabaseManager {
           limit_type VARCHAR(50),
           count INTEGER DEFAULT 0,
           reset_at TIMESTAMP,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_rate_limit (user_id, limit_type),
-          UNIQUE KEY unique_user_limit (user_id, limit_type)
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `
+
+      // Create indexes for better performance
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_user_id ON users(user_id)`
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_email ON users(email)`
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_user_usage ON usage_history(user_id, created_at)`
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_event ON analytics(event_name, created_at)`
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_user_hash ON analytics(user_hash)`
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_rate_limit ON rate_limits(user_id, limit_type)`
 
       console.log('Database tables initialized successfully')
     } catch (error) {
