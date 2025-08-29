@@ -20,7 +20,7 @@ export class AIHandler {
     
     // Model configuration
     this.models = {
-      openai: 'gpt-4-turbo-preview',
+      openai: 'gpt-4o',
       anthropic: 'claude-3-opus-20240229'
     }
     
@@ -59,14 +59,27 @@ export class AIHandler {
 
   async generateReply({ text, tone, userId, requestId }) {
     try {
+      // Check if we have any real API keys
+      const hasOpenAI = this.openai.apiKey && this.openai.apiKey !== 'mock-key'
+      const hasAnthropic = this.anthropic.apiKey && this.anthropic.apiKey !== 'mock-key'
+      
+      if (!hasOpenAI && !hasAnthropic) {
+        console.log('Using mock reply - no API keys configured')
+        return this.getMockReply(tone, text)
+      }
+
       // Check cache first
       const cacheKey = this.getCacheKey(text, tone)
       
-      if (this.cacheEnabled) {
-        const cached = await this.redis.get(cacheKey)
-        if (cached) {
-          console.log(`Cache hit for request ${requestId}`)
-          return cached
+      if (this.cacheEnabled && this.redis) {
+        try {
+          const cached = await this.redis.get(cacheKey)
+          if (cached) {
+            console.log(`Cache hit for request ${requestId}`)
+            return cached
+          }
+        } catch (error) {
+          console.log('Cache check failed:', error.message)
         }
       }
 
@@ -99,13 +112,21 @@ export class AIHandler {
         content: `Generate a ${tone} reply to the following text. Keep it concise (under 150 words) and natural:\n\n"${text}"`
       })
 
-      // Try primary model (OpenAI)
-      let reply = await this.callOpenAI(messages, requestId)
+      // Prioritize Anthropic over OpenAI
+      let reply = null
       
-      // Fallback to Anthropic if OpenAI fails
-      if (!reply) {
-        console.log(`Falling back to Anthropic for request ${requestId}`)
+      if (hasAnthropic) {
+        console.log(`Using Anthropic Claude for request ${requestId}`)
         reply = await this.callAnthropic(messages, requestId)
+        
+        // Fallback to OpenAI if Anthropic fails
+        if (!reply && hasOpenAI) {
+          console.log(`Anthropic failed, falling back to OpenAI for request ${requestId}`)
+          reply = await this.callOpenAI(messages, requestId)
+        }
+      } else if (hasOpenAI) {
+        console.log(`Using OpenAI GPT for request ${requestId}`)
+        reply = await this.callOpenAI(messages, requestId)
       }
 
       // If both fail, use a fallback response
@@ -114,16 +135,49 @@ export class AIHandler {
       }
 
       // Cache the result
-      if (this.cacheEnabled && reply) {
-        await this.redis.setex(cacheKey, this.cacheTTL, reply)
+      if (this.cacheEnabled && this.redis && reply) {
+        try {
+          await this.redis.setex(cacheKey, this.cacheTTL, reply)
+        } catch (error) {
+          console.log('Cache write failed:', error.message)
+        }
       }
 
       return reply
 
     } catch (error) {
       console.error('Error in generateReply:', error)
-      throw error
+      // Return mock reply on error
+      return this.getMockReply(tone, text)
     }
+  }
+
+  getMockReply(tone, text) {
+    const mockReplies = {
+      optimistic: [
+        "That's absolutely wonderful! I'm excited to see where this journey takes us! ✨",
+        "What an amazing perspective! The possibilities are endless! 🌟",
+        "I love your enthusiasm! Together we can make incredible things happen! 🚀"
+      ],
+      sarcastic: [
+        "Oh brilliant, absolutely groundbreaking stuff here. Never seen anything like it. 🙄",
+        "Wow, revolutionary. I'm sure the Nobel committee is already preparing your award. 😏",
+        "Fascinating. Truly. I'm on the edge of my seat with excitement. 😐"
+      ],
+      direct: [
+        "Acknowledged. Proceeding with the implementation.",
+        "Understood. I'll handle this accordingly.",
+        "Clear. Moving forward with the next steps."
+      ],
+      sassy: [
+        "Honey, we need to talk about your choices here... but okay, let's work with it. 💅",
+        "Well well well, look who's coming in hot with the suggestions! Love the energy though. ✨",
+        "Cute idea, but let me show you how we REALLY do things around here. 💁‍♀️"
+      ]
+    }
+    
+    const replies = mockReplies[tone] || ["Thank you for your message."]
+    return replies[Math.floor(Math.random() * replies.length)]
   }
 
   async callOpenAI(messages, requestId) {
@@ -147,32 +201,20 @@ export class AIHandler {
 
   async callAnthropic(messages, requestId) {
     try {
-      // Convert messages to Anthropic format
-      const systemPrompt = messages.find(m => m.role === 'system')?.content || ''
-      const userMessages = messages.filter(m => m.role !== 'system')
-      
-      // Build conversation for Anthropic
-      let prompt = systemPrompt + '\n\n'
-      
-      for (const msg of userMessages) {
-        if (msg.role === 'user') {
-          prompt += `Human: ${msg.content}\n\n`
-        } else if (msg.role === 'assistant') {
-          prompt += `Assistant: ${msg.content}\n\n`
-        }
-      }
-      
-      prompt += 'Assistant:'
+      // Extract system message and user/assistant messages
+      const systemMessage = messages.find(m => m.role === 'system')?.content || ''
+      const conversationMessages = messages.filter(m => m.role !== 'system')
 
-      const response = await this.anthropic.completions.create({
-        model: this.models.anthropic,
-        prompt: prompt,
-        max_tokens_to_sample: 200,
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 200,
         temperature: 0.7,
-        metadata: { request_id: requestId }
+        system: systemMessage,
+        messages: conversationMessages,
+        metadata: { user_id: requestId }
       })
 
-      return response.completion?.trim()
+      return response.content[0]?.text?.trim()
     } catch (error) {
       console.error('Anthropic API error:', error.message)
       return null

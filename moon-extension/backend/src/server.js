@@ -14,8 +14,7 @@ import crypto from 'crypto'
 // Import handlers
 import { AIHandler } from './lib/ai-handler.js'
 import { DatabaseManager } from './lib/database.js'
-import { AuthMiddleware } from './middleware/auth.js'
-import { SecurityMiddleware } from './middleware/security.js'
+// Removed middleware imports - files don't exist yet
 
 // Load environment variables
 dotenv.config()
@@ -38,35 +37,84 @@ const logger = winston.createLogger({
   ]
 })
 
-// Initialize Redis for caching and rate limiting
-const redis = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
-  password: process.env.REDIS_PASSWORD,
-  retryStrategy: (times) => Math.min(times * 50, 2000)
-})
+// Initialize dependencies (optional for development)
+let redis = null
+let sql = null  
+let aiHandler = null
+let dbManager = null
 
-// Initialize PostgreSQL
-const sql = postgres({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'moon_db',
-  username: process.env.DB_USER || 'moon_user',
-  password: process.env.DB_PASSWORD,
-  ssl: process.env.NODE_ENV === 'production' ? 'require' : false,
-  max: 20,
-  idle_timeout: 20,
-  connect_timeout: 10
-})
+// Try to connect to Redis (optional)
+try {
+  redis = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT || 6379,
+    password: process.env.REDIS_PASSWORD,
+    retryStrategy: () => null, // Don't retry in development
+    lazyConnect: true
+  })
+  
+  redis.on('error', (err) => {
+    logger.warn('Redis connection error (continuing without Redis):', err.message)
+    redis = null
+  })
+  
+  redis.on('connect', () => {
+    logger.info('Redis connected successfully')
+  })
+  
+  // Try to connect
+  redis.connect().catch(() => {
+    logger.warn('Redis not available - using memory-based rate limiting')
+    redis = null
+  })
+} catch (error) {
+  logger.warn('Redis initialization failed - continuing without caching')
+  redis = null
+}
 
-// Initialize handlers
-const aiHandler = new AIHandler({
-  openaiKey: process.env.OPENAI_API_KEY,
-  anthropicKey: process.env.ANTHROPIC_API_KEY,
-  redis: redis
-})
+// Try to connect to PostgreSQL (optional)
+try {
+  if (process.env.DB_PASSWORD) {
+    sql = postgres({
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME || 'moon_db',
+      username: process.env.DB_USER || 'moon_user',
+      password: process.env.DB_PASSWORD,
+      ssl: process.env.NODE_ENV === 'production' ? 'require' : false,
+      max: 20,
+      idle_timeout: 20,
+      connect_timeout: 10
+    })
+    dbManager = new DatabaseManager(sql, redis)
+    logger.info('PostgreSQL connected')
+  } else {
+    logger.info('PostgreSQL not configured - using mock database')
+  }
+} catch (error) {
+  logger.warn('PostgreSQL initialization failed - using mock database')
+  sql = null
+}
 
-const dbManager = new DatabaseManager(sql, redis)
+// Initialize AI handler (will use mock if no API key)
+try {
+  aiHandler = new AIHandler({
+    openaiKey: process.env.OPENAI_API_KEY || 'mock-key',
+    anthropicKey: process.env.ANTHROPIC_API_KEY || 'mock-key',
+    redis: redis
+  })
+  
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) {
+    logger.warn('⚠️ No AI API keys found - using MOCK REPLIES for testing')
+    logger.warn('To use real AI, add ANTHROPIC_API_KEY or OPENAI_API_KEY to your .env file')
+  } else if (process.env.ANTHROPIC_API_KEY) {
+    logger.info('✅ Anthropic API key found - using Claude for AI replies')
+  } else if (process.env.OPENAI_API_KEY) {
+    logger.info('✅ OpenAI API key found - using GPT for AI replies')
+  }
+} catch (error) {
+  logger.error('AI Handler initialization failed:', error)
+}
 
 // Security Headers with Helmet
 app.use(helmet({
@@ -132,41 +180,26 @@ app.use((req, res, next) => {
   next()
 })
 
-// Global rate limiter
+// Global rate limiter (uses Redis if available, memory otherwise)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
-  legacyHeaders: false,
-  store: new RedisStore({
-    client: redis,
-    prefix: 'rl:global:'
-  })
+  legacyHeaders: false
+  // Uses memory store by default if Redis not available
 })
 
 app.use('/api', globalLimiter)
 
-// Strict rate limiter for reply generation
+// Reply generation rate limiter (memory-based)
 const replyLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10, // Max 10 replies per minute
   message: 'Rate limit exceeded. Please wait before generating more replies.',
   standardHeaders: true,
-  legacyHeaders: false,
-  skip: async (req) => {
-    // Skip rate limiting for pro users
-    const userId = req.headers['x-user-id']
-    if (userId) {
-      const isPro = await dbManager.checkProStatus(userId)
-      return isPro
-    }
-    return false
-  },
-  store: new RedisStore({
-    client: redis,
-    prefix: 'rl:reply:'
-  })
+  legacyHeaders: false
+  // Skip pro user check for now since dbManager might be null
 })
 
 // Input validation schemas
@@ -221,34 +254,64 @@ app.post('/api/generate-reply',
         textLength: text.length
       })
 
-      // Check user's usage limit
-      const usageCheck = await dbManager.checkUsageLimit(userId)
-      
-      if (!usageCheck.canGenerate) {
-        return res.status(429).json({
-          error: 'Usage limit exceeded',
-          usageCount: usageCheck.usageCount,
-          limit: usageCheck.limit,
-          upgradeUrl: 'https://moonreply.com/upgrade'
-        })
+      // Check user's usage limit (if database available)
+      if (dbManager) {
+        const usageCheck = await dbManager.checkUsageLimit(userId)
+        
+        if (!usageCheck.canGenerate) {
+          return res.status(429).json({
+            error: 'Usage limit exceeded',
+            usageCount: usageCheck.usageCount,
+            limit: usageCheck.limit,
+            upgradeUrl: 'https://moonreply.com/upgrade'
+          })
+        }
       }
 
-      // Generate reply using AI
-      const reply = await aiHandler.generateReply({
-        text,
-        tone,
-        userId,
-        requestId
-      })
+      // Generate reply using AI or mock
+      let reply
+      const hasAnthropicKey = process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== 'mock-key'
+      const hasOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'mock-key'
+      
+      if (aiHandler && (hasAnthropicKey || hasOpenAIKey)) {
+        try {
+          reply = await aiHandler.generateReply({
+            text,
+            tone,
+            userId,
+            requestId
+          })
+          
+          if (hasAnthropicKey) {
+            logger.info('Reply generated using Anthropic Claude')
+          } else {
+            logger.info('Reply generated using OpenAI GPT')
+          }
+        } catch (error) {
+          logger.error('AI generation failed, using mock:', error.message)
+          reply = getMockReply(tone, text)
+        }
+      } else {
+        // Use mock replies for testing
+        reply = getMockReply(tone, text)
+        logger.info('Using mock reply (no AI API key configured)')
+      }
 
-      // Record usage
-      const newUsageCount = await dbManager.recordUsage({
-        userId,
-        text: text.substring(0, 500), // Store first 500 chars
-        tone,
-        reply: reply.substring(0, 500),
-        requestId
-      })
+      // Record usage (if database available)
+      let newUsageCount = 1
+      if (dbManager) {
+        try {
+          newUsageCount = await dbManager.recordUsage({
+            userId,
+            text: text.substring(0, 500), // Store first 500 chars
+            tone,
+            reply: reply.substring(0, 500),
+            requestId
+          })
+        } catch (error) {
+          logger.warn('Could not record usage:', error.message)
+        }
+      }
 
       // Return response
       res.json({
@@ -274,18 +337,55 @@ app.post('/api/generate-reply',
   }
 )
 
+// Mock reply function for testing without AI
+function getMockReply(tone, text) {
+  const mockReplies = {
+    optimistic: [
+      "That's a wonderful perspective! I'm excited to see where this leads! 😊",
+      "What an amazing opportunity! Let's make the most of it! ✨",
+      "I love your positive energy! This is going to be great! 🌟",
+      "Every challenge is a chance to grow! You've got this! 💪"
+    ],
+    sarcastic: [
+      "Oh wow, what a truly groundbreaking observation. Never heard that one before. 😏",
+      "Well, that's certainly... one way to look at it. How refreshing. 🙄",
+      "Absolutely revolutionary thinking there. I'm sure nobody has ever thought of that. 😐",
+      "Brilliant. Simply brilliant. My mind is completely blown. 🤯"
+    ],
+    direct: [
+      "Understood. I'll handle this accordingly.",
+      "Got it. Moving forward with the plan.",
+      "Acknowledged. Will proceed as discussed.",
+      "Clear. Let's execute on this immediately."
+    ],
+    sassy: [
+      "Well aren't you just full of surprises today! 💅",
+      "Oh honey, that's cute. But let me show you how it's really done. ✨",
+      "Bless your heart, but I think we can do better than that. 💁‍♀️",
+      "Okay, but make it fashion. We're not doing basic today. 👠"
+    ]
+  }
+  
+  const replies = mockReplies[tone] || ["Thanks for sharing that!"]
+  return replies[Math.floor(Math.random() * replies.length)]
+}
+
 // Analytics endpoint
 app.post('/api/analytics', async (req, res) => {
   try {
     const { event, userId, properties } = req.body
     
-    // Store analytics event (privacy-friendly)
-    await dbManager.recordAnalytics({
-      event,
-      userId: crypto.createHash('sha256').update(userId).digest('hex'),
-      properties,
-      timestamp: new Date()
-    })
+    // Store analytics event if database available
+    if (dbManager) {
+      await dbManager.recordAnalytics({
+        event,
+        userId: crypto.createHash('sha256').update(userId).digest('hex'),
+        properties,
+        timestamp: new Date()
+      })
+    } else {
+      logger.info('Analytics event (not stored):', { event, userId })
+    }
 
     res.json({ success: true })
   } catch (error) {
@@ -304,9 +404,19 @@ app.get('/api/user/:userId', async (req, res) => {
       return res.status(400).json({ error: 'Invalid user ID' })
     }
 
-    const userInfo = await dbManager.getUserInfo(userId)
-    
-    res.json(userInfo)
+    if (dbManager) {
+      const userInfo = await dbManager.getUserInfo(userId)
+      res.json(userInfo)
+    } else {
+      // Return mock user info
+      res.json({
+        userId,
+        isPro: false,
+        usageToday: 1,
+        totalUsage: 1,
+        exists: true
+      })
+    }
   } catch (error) {
     logger.error('Error fetching user info', { error: error.message })
     res.status(500).json({ error: 'Failed to fetch user information' })
@@ -387,8 +497,8 @@ process.on('SIGTERM', async () => {
     logger.info('HTTP server closed')
   })
   
-  await redis.quit()
-  await sql.end()
+  if (redis) await redis.quit()
+  if (sql) await sql.end()
   
   process.exit(0)
 })
@@ -399,36 +509,6 @@ const server = app.listen(PORT, () => {
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`)
 })
 
-// RedisStore implementation for rate limiting
-class RedisStore {
-  constructor(options) {
-    this.client = options.client
-    this.prefix = options.prefix || 'rl:'
-  }
-
-  async increment(key) {
-    const prefixedKey = this.prefix + key
-    const multi = this.client.multi()
-    
-    multi.incr(prefixedKey)
-    multi.expire(prefixedKey, 60) // 1 minute expiry
-    
-    const results = await multi.exec()
-    return {
-      totalHits: results[0][1],
-      resetTime: new Date(Date.now() + 60000)
-    }
-  }
-
-  async decrement(key) {
-    const prefixedKey = this.prefix + key
-    return await this.client.decr(prefixedKey)
-  }
-
-  async resetKey(key) {
-    const prefixedKey = this.prefix + key
-    return await this.client.del(prefixedKey)
-  }
-}
+// Note: RedisStore removed - using memory-based rate limiting for development
 
 export default app

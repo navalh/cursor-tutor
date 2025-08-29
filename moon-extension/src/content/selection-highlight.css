@@ -1,0 +1,118 @@
+/* Moon Extension - Selection Highlight Styles */
+
+/* Animation for the moon indicator */
+@keyframes moonFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Animation for the pulse effect */
+@keyframes moonPulse {
+  0% {
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.4);
+  }
+  50% {
+    box-shadow: 0 2px 20px rgba(102, 126, 234, 0.6);
+  }
+  100% {
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.4);
+  }
+}
+
+/* Selection indicator styles */
+.moon-selection-indicator {
+  position: absolute;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  z-index: 999999;
+  animation: moonFadeIn 0.3s ease-in-out;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.4);
+  transition: all 0.2s ease;
+}
+
+.moon-selection-indicator:hover {
+  transform: scale(1.1);
+  animation: moonPulse 1s ease-in-out infinite;
+}
+
+/* Highlight effect for selected text */
+.moon-text-highlighted {
+  background-color: rgba(102, 126, 234, 0.2) !important;
+  border-radius: 2px;
+  transition: background-color 0.3s ease;
+}
+
+/* Tooltip styles */
+.moon-tooltip {
+  position: absolute;
+  background: #333;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  z-index: 1000000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.moon-tooltip.visible {
+  opacity: 1;
+}
+
+/* Loading state for indicator */
+.moon-selection-indicator.loading {
+  animation: moonPulse 1s ease-in-out infinite;
+}
+
+/* Success state */
+.moon-selection-indicator.success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+/* Error state */
+.moon-selection-indicator.error {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* Make sure our styles don't interfere with page content */
+.moon-selection-indicator *,
+.moon-tooltip * {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Ensure indicator stays visible */
+.moon-selection-indicator {
+  position: fixed !important;
+}
+
+/* Animation for removing indicator */
+@keyframes moonFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.9);
+  }
+}
+
+.moon-selection-indicator.removing {
+  animation: moonFadeOut 0.3s ease-in-out forwards;
+}

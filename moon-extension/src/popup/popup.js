@@ -6,11 +6,14 @@ class MoonPopup {
     this.selectedText = ''
     this.usageCount = 0
     this.maxFreeReplies = 10
-    // Use localhost for development, production URL for deployed version
-    this.apiEndpoint = window.location.hostname === 'localhost' || 
-                       chrome.runtime.getManifest().name.includes('Dev')
+    // Use localhost for development - check manifest name for Dev version
+    const manifest = chrome.runtime.getManifest()
+    this.apiEndpoint = manifest.name.includes('Dev') || manifest.name.includes('development')
       ? 'http://localhost:3001/api' 
       : 'https://api.moonreply.com/api'
+    
+    // For now, always use localhost during development
+    this.apiEndpoint = 'http://localhost:3001/api'
     
     this.init()
   }
