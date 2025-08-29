@@ -40,8 +40,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         selectedText: request.text,
         timestamp: Date.now()
       })
-      // Note: chrome.action.openPopup() is not allowed in service workers
-      // User must click the extension icon to open popup
       sendResponse({ success: true })
       break
       
@@ -73,8 +71,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       timestamp: Date.now()
     })
     
-    // User must click the extension icon to open popup
-    // chrome.action.openPopup() is not allowed in service workers
   }
 })
 
