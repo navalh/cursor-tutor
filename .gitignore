@@ -1,47 +1,318 @@
-# Environment variables
+############################
+# Environment & Secrets
+############################
 *env*
+.env
+.env.*
+!.env.example
+!.env.template
+.env.vault
+.env.backup
+secrets.json
+credentials.json
+config.secret.js
+private-config.json
+api-keys.json
+*-oauth-token.json
+refresh-token.json
+access-token.json
+service-account-*.json
 
+############################
 # Dependencies
+############################
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 
-# Build outputs
+############################
+# Build Outputs & Dist
+############################
 .next/
 out/
 dist/
 build/
+storybook-static/
+.vercel/
+.netlify/
+web-build/
+/public/js/bundle.js
+/public/css/compiled.css
+/src/generated/
 
-# IDE and editor files
+############################
+# Chrome Extension
+############################
+*.crx
+*.pem
+*.xpi
+*.zip
+key.pem
+manifest.key
+extension-key.txt
+update.xml
+updates.xml
+web-ext-artifacts/
+unpacked/
+_metadata/
+screenshots/
+promotional/
+manifest.v2.json
+
+############################
+# ExtPay / Payments
+############################
+extpay-config.json
+extpay-dev-config.js
+stripe-keys.json
+stripe-webhook-secret.txt
+payment-config.js
+payment-test-data.json
+.extensionpay/
+
+############################
+# Mobile App - iOS
+############################
+ios/Pods/
+ios/*.xcworkspace/contents.xcworkspacedata
+ios/*.xcuserdata
+ios/DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+ios/.xcode.env.local
+
+############################
+# Mobile App - Android
+############################
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/gradle-wrapper.jar
+*.apk
+*.aab
+*.hprof
+*.keystore
+!debug.keystore
+android/app/release/
+google-services.json
+
+############################
+# React Native / Expo
+############################
+.bundle/
+*.jsbundle
+.metro-health-check*
+.react-native-cache/
+.expo/
+.expo-shared/
+
+############################
+# Backend
+############################
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.Python
+pip-log.txt
+
+# Docker
+docker-compose.override.yml
+.dockerignore.local
+
+# Firebase
+firebase-config.json
+
+############################
+# Logs
+############################
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+chrome-debug.log
+nginx-error.log
+nginx-access.log
+pm2.log
+
+############################
+# Testing
+############################
+coverage/
+.nyc_output/
+*.lcov
+.coverage
+.coverage.*
+.pytest_cache/
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+test-users.json
+mock-data/
+fixtures/
+
+############################
+# Caching & Temp
+############################
+.cache/
+.parcel-cache/
+.rollup.cache/
+.webpack/
+.webpack-cache/
+.fusebox/
+.dynamodb/
+.serverless/
+.sass-cache/
+.vite/
+.turbo/
+tmp/
+temp/
+.tmp/
+.temp/
+
+############################
+# Build Tools
+############################
+.tern-port
+.tsc_cache/
+*.tsbuildinfo
+.eslintcache
+
+############################
+# Runtime
+############################
+pids/
+*.pid
+*.seed
+*.pid.lock
+.lock-wscript
+
+############################
+# PWA
+############################
+sw.js
+workbox-*.js
+precache-manifest.*
+
+############################
+# IDE & Editors
+############################
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.code-workspace
 
-# OS generated files
+############################
+# OS Files - macOS
+############################
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs.db
+.AppleDouble
+.LSOverride
+Icon
+
+############################
+# OS Files - Windows
+############################
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
 
-# Logs
-logs
-*.log
+############################
+# Database
+############################
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+############################
+# Documentation
+############################
+docs/_build/
+site/
 
-# Coverage directory used by tools like istanbul
-coverage/
+############################
+# Backup & Archive
+############################
+*.backup
+*.bak
+*.old
+~*
+*.tar
+*.tar.gz
+*.rar
+*.7z
 
-# Temporary folders
-tmp/
-temp/
+############################
+# Certificates & Keys
+############################
+*.key
+*.crt
+*.cert
+*.cer
+*.csr
+*.p12
+*.pfx
+
+############################
+# Analytics
+############################
+analytics-config.json
+ga-config.json
+
+############################
+# Local Development
+############################
+local-only/
+.local/
+*.local.*
+dev-notes.md
+TODO.md
+NOTES.md
+
+############################
+# CI/CD
+############################
+.github/workflows/local-*.yml
+.gitlab-ci-local.yml
+
+############################
+# Terraform / IaC
+############################
+*.tfstate
+*.tfstate.*
+.terraform/
+.DS_Store
