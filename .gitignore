@@ -227,7 +227,7 @@ precache-manifest.*
 ############################
 # OS Files - macOS
 ############################
-.DS_Store
+*.DS_Store*
 .DS_Store?
 ._*
 .Spotlight-V100
